@@ -1,0 +1,38 @@
+#+TITLE: OrgNote TeX delimiters
+#+FILETAGS: :orgnote:extension:
+
+Render Emacs-style math that OrgNote's parser does not turn into
+=latexFragment= nodes:
+
+- Inline =\( ... \)=
+- Display =\[ ... \]=
+- Multiline =$$ ... $$= (same-line =$$= is already handled by OrgNote)
+
+Same-line =$...$= / =$$...$$=, =#+BEGIN_EXPORT latex=, and
+=\begin{equation}= are left to the builtin KaTeX widgets.
+
+Source blocks (=#+BEGIN_SRC=) are skipped. Click into a formula to edit
+the original delimiters.
+
+* Install on org-note.com (PWA)
+
+1. Open [[https://org-note.com][org-note.com]] (Safari → Add to Home Screen on iPhone).
+2. Settings → Extensions.
+3. *Add from git* and paste:
+
+   https://github.com/hyan46/orgnote-tex-delimiters
+
+4. Enable *TeX delimiters* if it is not already on.
+5. Reload the app, then open the LaTeX test note.
+
+Desktop alternative: *Upload* the =index.js= file from this repo.
+
+* What you should see
+
+On [[file:../20260814-orgnote-latex.org][the LaTeX test note]]:
+
+| Syntax | Before | After this extension |
+| =\( \)= / =\[ \]= | raw backslash delimiters | KaTeX |
+| Multiline =$$= | raw dollars | KaTeX |
+| Same-line =$= / =$$= | already KaTeX | unchanged |
+| =#+BEGIN_EXPORT latex= | already KaTeX | unchanged |
