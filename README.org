@@ -12,7 +12,7 @@ Same-line =$...$= / =$$...$$=, =#+BEGIN_EXPORT latex=, and
 =\begin{equation}= are left to the builtin KaTeX widgets.
 
 Source blocks (=#+BEGIN_SRC=) are skipped. Click into a formula to edit
-the original delimiters.
+the original delimiters (the preview hides while the cursor is inside).
 
 * Install on org-note.com (PWA)
 
@@ -24,7 +24,7 @@ the original delimiters.
    https://github.com/hyan46/orgnote-tex-delimiters
 
 5. Enable it, then reload. A green badge at the bottom-left should say
-   =TeX delimiters v0.4 loaded=.
+   =TeX delimiters v0.5 loaded=.
 6. Open the LaTeX test note. The badge should show a formula count.
 
 Desktop alternative: *Upload* =index.js= from this repo.

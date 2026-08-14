@@ -1,5 +1,12 @@
 import katex from 'katex';
-import { findTexRanges } from './find-tex.js';
+import { caretInMatch, findTexRanges } from './find-tex.js';
+import {
+  caretOffset,
+  collectText,
+  lineRectsForMatch,
+  rectsForMatch,
+  unionRects,
+} from './overlay.js';
 
 export { findTexRanges };
 
@@ -7,7 +14,7 @@ export const manifest = {
   name: 'TeX delimiters',
   description:
     'Render \\( \\) inline, \\[ \\] display, and multiline $$ $$ with KaTeX',
-  version: '0.4.0',
+  version: '0.5.0',
   category: 'extension',
   sourceType: 'git',
   sourceUrl: 'https://github.com/hyan46/orgnote-tex-delimiters',
@@ -18,11 +25,10 @@ export const manifest = {
 
 const STYLE_ID = 'orgnote-tex-delimiters';
 const LAYER_CLASS = 'orgnote-tex-layer';
-const SKIP_SEL =
-  '.katex,.org-embedded-latexfragment,.org-embedded-latexenvironment,.org-embedded-exportblock,.orgnote-tex-layer';
+const VERSION = '0.5.0';
 
 const STATUS = (globalThis.__orgnoteTex = {
-  version: '0.4.0',
+  version: VERSION,
   mounted: false,
   paints: 0,
   matches: 0,
@@ -33,43 +39,21 @@ function log(...args) {
   console.info('[orgnote-tex-delimiters]', ...args);
 }
 
-function shouldSkip(el) {
-  return !!(el && el.closest && el.closest(SKIP_SEL));
+function editorBackground(content) {
+  const editor = content.closest('.cm-editor') || content;
+  const bgRaw = getComputedStyle(editor).backgroundColor;
+  if (bgRaw && bgRaw !== 'rgba(0, 0, 0, 0)' && bgRaw !== 'transparent') {
+    return bgRaw;
+  }
+  return 'var(--bg, #ffffff)';
 }
 
-function collectText(root) {
-  const parts = [];
-  const walk = (node) => {
-    if (!node) return;
-    if (node.nodeType === 3) {
-      if (shouldSkip(node.parentElement)) return;
-      parts.push({ node, text: node.nodeValue || '', start: 0 });
-      return;
-    }
-    if (node.nodeType !== 1) return;
-    if (shouldSkip(node)) return;
-    const children = node.childNodes;
-    for (let i = 0; i < children.length; i++) walk(children[i]);
-  };
-  walk(root);
-  let offset = 0;
-  for (const part of parts) {
-    part.start = offset;
-    offset += part.text.length;
-  }
-  return { text: parts.map((p) => p.text).join(''), parts };
-}
-
-function pointFromParts(parts, index, edge) {
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    const end = part.start + part.text.length;
-    if (index < end || (index === end && (edge === 'end' || i === parts.length - 1))) {
-      return { node: part.node, offset: Math.max(0, Math.min(part.text.length, index - part.start)) };
-    }
-  }
-  const last = parts[parts.length - 1];
-  return last ? { node: last.node, offset: last.text.length } : null;
+function place(el, rect, scrollRect, scroller) {
+  el.style.position = 'absolute';
+  el.style.left = `${rect.left - scrollRect.left + scroller.scrollLeft}px`;
+  el.style.top = `${rect.top - scrollRect.top + scroller.scrollTop}px`;
+  el.style.width = `${Math.max(1, rect.width)}px`;
+  el.style.height = `${Math.max(1, rect.height)}px`;
 }
 
 function paintContent(content) {
@@ -91,44 +75,40 @@ function paintContent(content) {
   const matches = findTexRanges(text);
   if (!parts.length || !matches.length) return matches.length;
 
+  const caret = caretOffset(parts, document.getSelection(), content);
   const scrollRect = scroller.getBoundingClientRect();
-  const editor = content.closest('.cm-editor') || content;
-  const bgRaw = getComputedStyle(editor).backgroundColor;
-  const bg =
-    bgRaw && bgRaw !== 'rgba(0, 0, 0, 0)' && bgRaw !== 'transparent'
-      ? bgRaw
-      : 'var(--bg, #ffffff)';
+  const bg = editorBackground(content);
+  let painted = 0;
 
   for (const match of matches) {
-    const start = pointFromParts(parts, match.from, 'start');
-    const end = pointFromParts(parts, match.to, 'end');
-    if (!start || !end) continue;
-    const range = document.createRange();
-    try {
-      range.setStart(start.node, start.offset);
-      range.setEnd(end.node, end.offset);
-    } catch {
-      continue;
+    if (caretInMatch(caret, match)) continue;
+
+    let rects = rectsForMatch(parts, match);
+    if (match.display || !rects.length) {
+      const lines = lineRectsForMatch(content, parts, match);
+      if (match.display) rects = lines.length ? lines : rects;
+      else if (!rects.length) rects = lines;
     }
-    const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
     if (!rects.length) continue;
-    let left = Infinity;
-    let top = Infinity;
-    let right = -Infinity;
-    let bottom = -Infinity;
-    for (const r of rects) {
-      left = Math.min(left, r.left);
-      top = Math.min(top, r.top);
-      right = Math.max(right, r.right);
-      bottom = Math.max(bottom, r.bottom);
+    const union = unionRects(rects);
+    if (!union) continue;
+
+    for (let i = 0; i < rects.length; i++) {
+      const cover = document.createElement('div');
+      cover.className = 'orgnote-tex-cover';
+      place(cover, rects[i], scrollRect, scroller);
+      cover.style.background = bg;
+      layer.appendChild(cover);
     }
+
     const box = document.createElement('div');
     box.className = match.display ? 'orgnote-tex-display' : 'orgnote-tex-inline';
-    box.style.position = 'absolute';
-    box.style.left = `${left - scrollRect.left + scroller.scrollLeft}px`;
-    box.style.top = `${top - scrollRect.top + scroller.scrollTop}px`;
-    box.style.minWidth = `${Math.max(1, right - left)}px`;
+    place(box, union, scrollRect, scroller);
+    box.style.minWidth = `${Math.max(1, union.width)}px`;
+    box.style.minHeight = `${Math.max(1, union.height)}px`;
+    box.style.height = 'auto';
     box.style.background = bg;
+    box.style.overflowX = match.display ? 'auto' : 'visible';
     try {
       katex.render(match.body, box, {
         throwOnError: false,
@@ -139,8 +119,9 @@ function paintContent(content) {
       box.textContent = match.body;
     }
     layer.appendChild(box);
+    painted += 1;
   }
-  return matches.length;
+  return painted;
 }
 
 function paintAll() {
@@ -154,8 +135,8 @@ function paintAll() {
     STATUS.matches = total;
     setBadge(
       contents.length
-        ? `TeX delimiters v0.4 — ${total} formula${total === 1 ? '' : 's'}`
-        : 'TeX delimiters v0.4 loaded — open a note'
+        ? `TeX delimiters v${VERSION} — ${total} formula${total === 1 ? '' : 's'}`
+        : `TeX delimiters v${VERSION} loaded — open a note`
     );
   } catch (err) {
     STATUS.lastError = String(err);
@@ -206,12 +187,13 @@ export default {
       api,
       STYLE_ID,
       `
-.orgnote-tex-display { display: block; overflow-x: auto; padding: 0.15em 0; }
-.orgnote-tex-inline { display: inline-block; }
+.orgnote-tex-cover { pointer-events: none; }
+.orgnote-tex-display { display: block; padding: 0.15em 0; box-sizing: border-box; }
+.orgnote-tex-inline { display: block; box-sizing: border-box; }
 .orgnote-tex-display .katex-display { margin: 0.3em 0; }
 `
     );
-    setBadge('TeX delimiters v0.4 loaded — open a note');
+    setBadge(`TeX delimiters v${VERSION} loaded — open a note`);
     observer = new MutationObserver((mutations) => {
       for (let i = 0; i < mutations.length; i++) {
         const node =
@@ -228,6 +210,7 @@ export default {
       subtree: true,
       characterData: true,
     });
+    document.addEventListener('selectionchange', schedulePaint);
     schedulePaint();
     pollTimer = window.setInterval(schedulePaint, 1000);
   },
@@ -235,6 +218,7 @@ export default {
   async onUnmounted(api) {
     observer?.disconnect();
     observer = null;
+    document.removeEventListener('selectionchange', schedulePaint);
     if (pollTimer) window.clearInterval(pollTimer);
     pollTimer = 0;
     STATUS.mounted = false;

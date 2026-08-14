@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { findTexRanges } from './src/find-tex.js';
+import { readFileSync } from 'node:fs';
+import { caretInMatch, findTexRanges } from './src/find-tex.js';
+import {
+  assignStarts,
+  caretOffset,
+  pointFromParts,
+  unionRects,
+} from './src/overlay.js';
 import test from 'node:test';
 
 test('inline \\( \\)', () => {
@@ -83,4 +90,109 @@ Inline: \\( a > 0 \\) and $b > 0$.
       [false, 'a > 0'],
     ]
   );
+});
+
+test('heading =$$= does not swallow later \\( \\)', () => {
+  const text = `* Display math =$$ $$= (must be one line; multiline =$$= is plain text)
+Same-line:
+$$\\lambda^*(t) = 1$$
+
+Hawkes when \\( a > 0 \\) for \\( s < t < u \\).
+`;
+  const found = findTexRanges(text);
+  assert.deepEqual(
+    found.map((f) => f.body),
+    ['a > 0', 's < t < u']
+  );
+});
+
+test('Hawkes Cov line from the OrgNote test note', () => {
+  const line =
+    'Hawkes is self-exciting when \\( \\mathrm{Cov}(N(s,t), N(t,u)) > 0 \\) for \\( s < t < u \\).';
+  const found = findTexRanges(line);
+  assert.equal(found.length, 2);
+  assert.equal(found[0].display, false);
+  assert.equal(found[0].body, '\\mathrm{Cov}(N(s,t), N(t,u)) > 0');
+  assert.equal(found[1].body, 's < t < u');
+});
+
+test('matches \\( \\) when ZWSP sits between backslash and paren', () => {
+  const zw = '\u200b';
+  const text = `when \\${zw}( a > 0 \\${zw}) for \\${zw}( s < t \\${zw}).`;
+  const found = findTexRanges(text);
+  assert.equal(found.length, 2);
+  assert.equal(found[0].body, 'a > 0');
+  assert.equal(found[1].body, 's < t');
+});
+
+test('latex test note file includes the Cov inline formulas', () => {
+  const note = readFileSync(
+    new URL('../20260814-orgnote-latex.org', import.meta.url),
+    'utf8'
+  );
+  const found = findTexRanges(note);
+  const bodies = found.map((f) => f.body);
+  assert.ok(bodies.includes('\\mathrm{Cov}(N(s,t), N(t,u)) > 0'));
+  assert.ok(bodies.includes('s < t < u'));
+  assert.ok(found.some((f) => f.display && f.body.includes('\\lambda^*')));
+});
+
+test('caret inside a match hides it', () => {
+  const [match] = findTexRanges('hello \\( a \\) there');
+  assert.equal(caretInMatch(match.from, match), true);
+  assert.equal(caretInMatch(match.to - 1, match), true);
+  assert.equal(caretInMatch(match.to, match), false);
+  assert.equal(caretInMatch(0, match), false);
+  assert.equal(caretInMatch(null, match), false);
+});
+
+test('pointFromParts skips synthetic newlines', () => {
+  const n1 = { value: '\\[' };
+  const n2 = { value: '  a' };
+  const n3 = { value: '\\]' };
+  const parts = assignStarts([
+    { node: n1, text: '\\[', start: 0 },
+    { node: null, text: '\n', start: 0 },
+    { node: n2, text: '  a', start: 0 },
+    { node: null, text: '\n', start: 0 },
+    { node: n3, text: '\\]', start: 0 },
+  ]);
+  const text = parts.map((p) => p.text).join('');
+  const [match] = findTexRanges(text);
+  assert.equal(match.body, 'a');
+  const start = pointFromParts(parts, match.from, 'start');
+  const end = pointFromParts(parts, match.to, 'end');
+  assert.equal(start.node, n1);
+  assert.equal(start.offset, 0);
+  assert.equal(end.node, n3);
+  assert.equal(end.offset, 2);
+});
+
+test('unionRects covers every client rect so \\] is not left exposed', () => {
+  const union = unionRects([
+    { left: 10, top: 10, right: 40, bottom: 24, width: 30, height: 14 },
+    { left: 10, top: 24, right: 80, bottom: 38, width: 70, height: 14 },
+    { left: 10, top: 38, right: 30, bottom: 52, width: 20, height: 14 },
+  ]);
+  assert.equal(union.top, 10);
+  assert.equal(union.bottom, 52);
+  assert.equal(union.height, 42);
+  assert.equal(union.width, 70);
+});
+
+test('caretOffset maps a text node selection onto collected parts', () => {
+  const node = { nodeType: 3, nodeValue: '\\( a \\)' };
+  const parts = assignStarts([{ node, text: '\\( a \\)', start: 0 }]);
+  const root = {
+    contains(n) {
+      return n === node;
+    },
+  };
+  const sel = {
+    rangeCount: 1,
+    getRangeAt() {
+      return { startContainer: node, startOffset: 3 };
+    },
+  };
+  assert.equal(caretOffset(parts, sel, root), 3);
 });

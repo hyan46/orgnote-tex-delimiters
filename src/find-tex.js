@@ -2,6 +2,7 @@ const BLOCK_RE =
   /^[ \t]*#\+BEGIN_(SRC|EXAMPLE|EXPORT|COMMENT|VERSE)\b[\s\S]*?^[ \t]*#\+END_\1\b.*$/gim;
 const ENV_RE =
   /\\begin\{((?:equation|align|eqnarray|multline|gather|displaymath)\*?)\}[\s\S]*?\\end\{\1\}/g;
+const INVISIBLE = /[\u200b\u200c\u200d\ufeff]/;
 
 function mergeRanges(ranges) {
   const sorted = ranges
@@ -35,6 +36,29 @@ function overlaps(from, to, ranges) {
   return false;
 }
 
+/** Length of `\\` + optional ZWSP + `brace`, or 0. */
+export function delimLen(text, i, brace) {
+  if (text[i] !== '\\') return 0;
+  let k = i + 1;
+  while (k < text.length && INVISIBLE.test(text[k])) k++;
+  if (text[k] === brace) return k + 1 - i;
+  return 0;
+}
+
+function findClose(text, from, brace) {
+  for (let j = from; j < text.length; j++) {
+    const n = delimLen(text, j, brace);
+    if (n) return { from: j, to: j + n };
+  }
+  return null;
+}
+
+function atLineStart(text, i) {
+  let j = i;
+  while (j > 0 && (text[j - 1] === ' ' || text[j - 1] === '\t')) j--;
+  return j === 0 || text[j - 1] === '\n';
+}
+
 /**
  * Find math ranges OrgNote does not parse as latexFragment.
  * Same-line $...$ / $$...$$ are left to the builtin widget.
@@ -63,32 +87,41 @@ export function findTexRanges(text) {
       if (end !== -1) {
         const body = text.slice(i + 2, end);
         if (body.includes('\n')) {
-          take(i, end + 2, true, body.trim());
-          i = end + 2;
-          continue;
-        }
-        i = end + 2;
-        continue;
-      }
-    }
-
-    if (text[i] === '\\' && text[i + 1] === '[') {
-      const end = text.indexOf('\\]', i + 2);
-      if (end !== -1) {
-        const body = text.slice(i + 2, end).trim();
-        if (take(i, end + 2, true, body)) {
+          // Headings like =$$= must not pair with a later $$ and swallow \( \).
+          if (
+            atLineStart(text, i) &&
+            atLineStart(text, end) &&
+            take(i, end + 2, true, body.trim())
+          ) {
+            i = end + 2;
+            continue;
+          }
+        } else {
           i = end + 2;
           continue;
         }
       }
     }
 
-    if (text[i] === '\\' && text[i + 1] === '(') {
-      const end = text.indexOf('\\)', i + 2);
-      if (end !== -1) {
-        const body = text.slice(i + 2, end).trim();
-        if (take(i, end + 2, false, body)) {
-          i = end + 2;
+    const openDisp = delimLen(text, i, '[');
+    if (openDisp) {
+      const close = findClose(text, i + openDisp, ']');
+      if (close) {
+        const body = text.slice(i + openDisp, close.from).trim();
+        if (take(i, close.to, true, body)) {
+          i = close.to;
+          continue;
+        }
+      }
+    }
+
+    const openInline = delimLen(text, i, '(');
+    if (openInline) {
+      const close = findClose(text, i + openInline, ')');
+      if (close) {
+        const body = text.slice(i + openInline, close.from).trim();
+        if (take(i, close.to, false, body)) {
+          i = close.to;
           continue;
         }
       }
@@ -98,4 +131,8 @@ export function findTexRanges(text) {
   }
 
   return results;
+}
+
+export function caretInMatch(caret, match) {
+  return caret != null && caret >= match.from && caret < match.to;
 }
