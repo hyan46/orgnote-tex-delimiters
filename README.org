@@ -24,8 +24,8 @@ the original delimiters.
    https://github.com/hyan46/orgnote-tex-delimiters
 
 5. Enable it, then reload. A green badge at the bottom-left should say
-   =TeX delimiters v0.3 loaded=.
-6. Open the LaTeX test note. The badge should change to a formula count.
+   =TeX delimiters v0.4 loaded=.
+6. Open the LaTeX test note. The badge should show a formula count.
 
 Desktop alternative: *Upload* =index.js= from this repo.
 
