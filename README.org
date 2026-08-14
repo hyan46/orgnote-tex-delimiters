@@ -18,13 +18,14 @@ the original delimiters.
 
 1. Open [[https://org-note.com][org-note.com]] (Safari → Add to Home Screen on iPhone).
 2. Settings → Extensions.
-3. If *TeX delimiters* is already listed, delete it (v0.1 does not auto-update).
+3. If *TeX delimiters* is already listed, delete it (old versions do not auto-update).
 4. *Add from git* and paste:
 
    https://github.com/hyan46/orgnote-tex-delimiters
 
-5. Enable it, then reload. A toast should say =TeX delimiters loaded=.
-6. Open the LaTeX test note.
+5. Enable it, then reload. A green badge at the bottom-left should say
+   =TeX delimiters v0.3 loaded=.
+6. Open the LaTeX test note. The badge should change to a formula count.
 
 Desktop alternative: *Upload* =index.js= from this repo.
 
