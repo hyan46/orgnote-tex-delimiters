@@ -4,6 +4,7 @@ import { caretInMatch, findTexRanges } from './src/find-tex.js';
 import {
   assignStarts,
   caretOffset,
+  lineHasBuiltinWidget,
   pointFromParts,
   unionRects,
 } from './src/overlay.js';
@@ -195,4 +196,29 @@ test('caretOffset maps a text node selection onto collected parts', () => {
     },
   };
   assert.equal(caretOffset(parts, sel, root), 3);
+});
+
+test('does not treat OrgNote widget lines as overlay covers', () => {
+  const line = {
+    querySelector(sel) {
+      assert.ok(sel.includes('org-embedded'));
+      return { className: 'org-embedded-exportblock' };
+    },
+  };
+  assert.equal(lineHasBuiltinWidget(line), true);
+  assert.equal(lineHasBuiltinWidget({ querySelector: () => null }), false);
+  assert.equal(lineHasBuiltinWidget(null), false);
+});
+
+test('same-line $ and $$ and export blocks stay out of overlay matches', () => {
+  const note = `#+BEGIN_EXPORT latex
+E = mc^2
+#+END_EXPORT
+
+$$\\lambda^*(t) = 1$$
+
+Hawkes when $\\mathrm{Cov}(N(s,t), N(t,u)) > 0$ for $s < t < u$.
+`;
+  const found = findTexRanges(note);
+  assert.equal(found.length, 0);
 });

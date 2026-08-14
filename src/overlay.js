@@ -146,16 +146,19 @@ export function lineRectsForMatch(root, parts, match) {
     const line = part.node.parentElement && part.node.parentElement.closest
       ? part.node.parentElement.closest('.cm-line')
       : null;
-    if (!line || seen.has(line)) continue;
+    if (!line || seen.has(line) || lineHasBuiltinWidget(line)) continue;
     seen.add(line);
     const r = line.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) rects.push(r);
   }
-  if (!rects.length && root && root.getBoundingClientRect) {
-    const r = root.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) rects.push(r);
-  }
   return rects;
+}
+
+export function lineHasBuiltinWidget(line) {
+  if (!line || !line.querySelector) return false;
+  return !!line.querySelector(
+    '[class*="org-embedded"],.katex,.cm-widgetBuffer'
+  );
 }
 
 export function unionRects(rects) {

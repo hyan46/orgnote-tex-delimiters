@@ -14,7 +14,7 @@ export const manifest = {
   name: 'TeX delimiters',
   description:
     'Render \\( \\) inline, \\[ \\] display, and multiline $$ $$ with KaTeX',
-  version: '0.5.0',
+  version: '0.6.0',
   category: 'extension',
   sourceType: 'git',
   sourceUrl: 'https://github.com/hyan46/orgnote-tex-delimiters',
@@ -25,7 +25,7 @@ export const manifest = {
 
 const STYLE_ID = 'orgnote-tex-delimiters';
 const LAYER_CLASS = 'orgnote-tex-layer';
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 
 const STATUS = (globalThis.__orgnoteTex = {
   version: VERSION,
@@ -104,11 +104,8 @@ function paintContent(content) {
     const box = document.createElement('div');
     box.className = match.display ? 'orgnote-tex-display' : 'orgnote-tex-inline';
     place(box, union, scrollRect, scroller);
-    box.style.minWidth = `${Math.max(1, union.width)}px`;
-    box.style.minHeight = `${Math.max(1, union.height)}px`;
-    box.style.height = 'auto';
-    box.style.background = bg;
-    box.style.overflowX = match.display ? 'auto' : 'visible';
+    box.style.overflow = 'hidden';
+    box.style.background = 'transparent';
     try {
       katex.render(match.body, box, {
         throwOnError: false,
@@ -188,9 +185,13 @@ export default {
       STYLE_ID,
       `
 .orgnote-tex-cover { pointer-events: none; }
-.orgnote-tex-display { display: block; padding: 0.15em 0; box-sizing: border-box; }
-.orgnote-tex-inline { display: block; box-sizing: border-box; }
-.orgnote-tex-display .katex-display { margin: 0.3em 0; }
+.orgnote-tex-display, .orgnote-tex-inline { box-sizing: border-box; }
+.orgnote-tex-display .katex-display { margin: 0; }
+.cm-content [class*="org-embedded"],
+.cm-content .katex {
+  position: relative;
+  z-index: 40;
+}
 `
     );
     setBadge(`TeX delimiters v${VERSION} loaded — open a note`);

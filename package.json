@@ -1,6 +1,6 @@
 {
   "name": "orgnote-tex-delimiters",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "OrgNote extension: render \\( \\) and \\[ \\] with KaTeX",
