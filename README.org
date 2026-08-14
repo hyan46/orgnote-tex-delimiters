@@ -18,14 +18,15 @@ the original delimiters.
 
 1. Open [[https://org-note.com][org-note.com]] (Safari → Add to Home Screen on iPhone).
 2. Settings → Extensions.
-3. *Add from git* and paste:
+3. If *TeX delimiters* is already listed, delete it (v0.1 does not auto-update).
+4. *Add from git* and paste:
 
    https://github.com/hyan46/orgnote-tex-delimiters
 
-4. Enable *TeX delimiters* if it is not already on.
-5. Reload the app, then open the LaTeX test note.
+5. Enable it, then reload. A toast should say =TeX delimiters loaded=.
+6. Open the LaTeX test note.
 
-Desktop alternative: *Upload* the =index.js= file from this repo.
+Desktop alternative: *Upload* =index.js= from this repo.
 
 * What you should see
 

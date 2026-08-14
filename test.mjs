@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { findTexRanges } from './index.js';
+import { findTexRanges } from './src/find-tex.js';
 import test from 'node:test';
 
 test('inline \\( \\)', () => {

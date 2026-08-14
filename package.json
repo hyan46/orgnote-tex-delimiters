@@ -1,16 +1,21 @@
 {
   "name": "orgnote-tex-delimiters",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "OrgNote extension: render \\( \\) and \\[ \\] with KaTeX",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test.mjs"
+    "test": "node --test test.mjs",
+    "build": "esbuild src/index.js --bundle --format=esm --minify --outfile=index.js --legal-comments=none && cp index.js dist/index.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hyan46/orgnote-tex-delimiters.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "katex": "^0.16.21"
+  }
 }
