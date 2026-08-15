@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { caretInMatch, findTexRanges } from './src/find-tex.js';
 import {
   assignStarts,
+  anchorRect,
   caretOffset,
   cmLinesForMatch,
   lineHasBuiltinWidget,
@@ -128,10 +128,14 @@ test('matches \\( \\) when ZWSP sits between backslash and paren', () => {
 });
 
 test('latex test note file includes the Cov inline formulas', () => {
-  const note = readFileSync(
-    new URL('../20260814-orgnote-latex.org', import.meta.url),
-    'utf8'
-  );
+  const note = `* Display math
+\\[
+  \\lambda^*(t) = \\lim_{h \\to 0} \\frac{\\mathbb{E}[N(t+h)-N(t)\\mid \\mathcal{H}(t)]}{h}
+\\]
+
+* Inline math
+Hawkes is self-exciting when \\( \\mathrm{Cov}(N(s,t), N(t,u)) > 0 \\) for \\( s < t < u \\).
+`;
   const found = findTexRanges(note);
   const bodies = found.map((f) => f.body);
   assert.ok(bodies.includes('\\mathrm{Cov}(N(s,t), N(t,u)) > 0'));
@@ -257,4 +261,14 @@ Hawkes when $\\mathrm{Cov}(N(s,t), N(t,u)) > 0$ for $s < t < u$.
 `;
   const found = findTexRanges(note);
   assert.equal(found.length, 0);
+});
+
+test('anchorRect is the top-left wrap fragment, not the bounding union', () => {
+  const first = { left: 120, top: 10, right: 300, bottom: 24, width: 180, height: 14 };
+  const second = { left: 10, top: 24, right: 80, bottom: 38, width: 70, height: 14 };
+  const anchor = anchorRect([first, second]);
+  assert.equal(anchor, first);
+  const union = unionRects([first, second]);
+  assert.equal(union.left, 10);
+  assert.ok(union.left < anchor.left);
 });

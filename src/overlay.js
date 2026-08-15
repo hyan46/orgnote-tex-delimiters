@@ -195,3 +195,16 @@ export function unionRects(rects) {
   if (!Number.isFinite(left)) return null;
   return { left, top, right, bottom, width: right - left, height: bottom - top };
 }
+
+/** Topmost, then leftmost client rect — start of a wrapped inline formula. */
+export function anchorRect(rects) {
+  if (!rects || !rects.length) return null;
+  let best = rects[0];
+  for (let i = 1; i < rects.length; i++) {
+    const r = rects[i];
+    if (r.top < best.top - 1 || (Math.abs(r.top - best.top) <= 1 && r.left < best.left)) {
+      best = r;
+    }
+  }
+  return best;
+}

@@ -13,6 +13,8 @@ Same-line =$...$= / =$$...$$=, =#+BEGIN_EXPORT latex=, and
 
 Source blocks (=#+BEGIN_SRC=) are skipped. Click into a formula to edit
 the original delimiters (the preview hides while the cursor is inside).
+Inline =\( \)= is replaced in the editor flow when possible, so it does not
+keep the width of the TeX source and can wrap with the paragraph.
 
 * Install on org-note.com (PWA)
 
@@ -24,7 +26,7 @@ the original delimiters (the preview hides while the cursor is inside).
    https://github.com/hyan46/orgnote-tex-delimiters
 
 5. Enable it, then reload. A green badge at the bottom-left should say
-   =TeX delimiters v0.7 loaded=.
+   =TeX delimiters v0.8 loaded=.
 6. Open the LaTeX test note. The badge should show a formula count.
 
 Desktop alternative: *Upload* =index.js= from this repo.
