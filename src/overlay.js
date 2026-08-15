@@ -135,30 +135,49 @@ export function rectsForMatch(parts, match) {
   return rects;
 }
 
+export function lineHasBuiltinWidget(line) {
+  if (!line || !line.querySelector) return false;
+  return !!line.querySelector(
+    '.org-embedded-latexfragment,.org-embedded-latexenvironment,.org-embedded-exportblock,.org-embedded-latexFragment,.org-embedded-exportBlock'
+  );
+}
+
+function lineEl(node) {
+  const el = node && (node.nodeType === 1 ? node : node.parentElement);
+  return el && el.closest ? el.closest('.cm-line') : null;
+}
+
+/**
+ * Every .cm-line from the opener through the closer, including lines
+ * whose text nodes were skipped (hidden operators, link-like [...] spans).
+ */
+export function cmLinesForMatch(parts, match) {
+  const start = pointFromParts(parts, match.from, 'start');
+  const end = pointFromParts(parts, match.to, 'end');
+  if (!start || !end) return [];
+  const first = lineEl(start.node);
+  const last = lineEl(end.node) || first;
+  if (!first) return [];
+  const lines = [];
+  let el = first;
+  let n = 0;
+  while (el && n++ < 80) {
+    if (el.classList && el.classList.contains('cm-line')) lines.push(el);
+    if (el === last) break;
+    el = el.nextElementSibling;
+  }
+  return lines;
+}
+
 export function lineRectsForMatch(root, parts, match) {
-  const seen = new Set();
+  const lines = cmLinesForMatch(parts, match);
   const rects = [];
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (!part.node) continue;
-    const partEnd = part.start + part.text.length;
-    if (partEnd <= match.from || part.start >= match.to) continue;
-    const line = part.node.parentElement && part.node.parentElement.closest
-      ? part.node.parentElement.closest('.cm-line')
-      : null;
-    if (!line || seen.has(line) || lineHasBuiltinWidget(line)) continue;
-    seen.add(line);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const r = line.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) rects.push(r);
   }
   return rects;
-}
-
-export function lineHasBuiltinWidget(line) {
-  if (!line || !line.querySelector) return false;
-  return !!line.querySelector(
-    '[class*="org-embedded"],.katex,.cm-widgetBuffer'
-  );
 }
 
 export function unionRects(rects) {

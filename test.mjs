@@ -4,6 +4,7 @@ import { caretInMatch, findTexRanges } from './src/find-tex.js';
 import {
   assignStarts,
   caretOffset,
+  cmLinesForMatch,
   lineHasBuiltinWidget,
   pointFromParts,
   unionRects,
@@ -201,13 +202,48 @@ test('caretOffset maps a text node selection onto collected parts', () => {
 test('does not treat OrgNote widget lines as overlay covers', () => {
   const line = {
     querySelector(sel) {
-      assert.ok(sel.includes('org-embedded'));
-      return { className: 'org-embedded-exportblock' };
+      return sel.includes('org-embedded-exportblock')
+        ? { className: 'org-embedded-exportblock' }
+        : null;
     },
   };
   assert.equal(lineHasBuiltinWidget(line), true);
   assert.equal(lineHasBuiltinWidget({ querySelector: () => null }), false);
   assert.equal(lineHasBuiltinWidget(null), false);
+});
+
+test('display math covers every cm-line from \\[ through \\]', () => {
+  function makeLine() {
+    const line = {
+      classList: { contains: (c) => c === 'cm-line' },
+      nextElementSibling: null,
+      closest(sel) {
+        return sel === '.cm-line' ? line : null;
+      },
+    };
+    return line;
+  }
+  const l1 = makeLine();
+  const l2 = makeLine();
+  const l3 = makeLine();
+  l1.nextElementSibling = l2;
+  l2.nextElementSibling = l3;
+  const n1 = { parentElement: l1 };
+  const n2 = { parentElement: l2 };
+  const n3 = { parentElement: l3 };
+  const parts = assignStarts([
+    { node: n1, text: '\\[', start: 0 },
+    { node: null, text: '\n', start: 0 },
+    { node: n2, text: '  a', start: 0 },
+    { node: null, text: '\n', start: 0 },
+    { node: n3, text: '\\]', start: 0 },
+  ]);
+  const [match] = findTexRanges(parts.map((p) => p.text).join(''));
+  const lines = cmLinesForMatch(parts, match);
+  assert.equal(lines.length, 3);
+  assert.equal(lines[0], l1);
+  assert.equal(lines[1], l2);
+  assert.equal(lines[2], l3);
 });
 
 test('same-line $ and $$ and export blocks stay out of overlay matches', () => {

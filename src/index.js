@@ -14,7 +14,7 @@ export const manifest = {
   name: 'TeX delimiters',
   description:
     'Render \\( \\) inline, \\[ \\] display, and multiline $$ $$ with KaTeX',
-  version: '0.6.0',
+  version: '0.7.0',
   category: 'extension',
   sourceType: 'git',
   sourceUrl: 'https://github.com/hyan46/orgnote-tex-delimiters',
@@ -25,7 +25,7 @@ export const manifest = {
 
 const STYLE_ID = 'orgnote-tex-delimiters';
 const LAYER_CLASS = 'orgnote-tex-layer';
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 
 const STATUS = (globalThis.__orgnoteTex = {
   version: VERSION,
@@ -83,20 +83,22 @@ function paintContent(content) {
   for (const match of matches) {
     if (caretInMatch(caret, match)) continue;
 
-    let rects = rectsForMatch(parts, match);
-    if (match.display || !rects.length) {
-      const lines = lineRectsForMatch(content, parts, match);
-      if (match.display) rects = lines.length ? lines : rects;
-      else if (!rects.length) rects = lines;
+    const textRects = rectsForMatch(parts, match);
+    const lineRects = lineRectsForMatch(content, parts, match);
+    let coverRects;
+    if (match.display) {
+      coverRects = lineRects.length ? lineRects : textRects;
+    } else {
+      coverRects = textRects.length ? textRects : lineRects;
     }
-    if (!rects.length) continue;
-    const union = unionRects(rects);
+    if (!coverRects.length) continue;
+    const union = unionRects(coverRects);
     if (!union) continue;
 
-    for (let i = 0; i < rects.length; i++) {
+    for (let i = 0; i < coverRects.length; i++) {
       const cover = document.createElement('div');
       cover.className = 'orgnote-tex-cover';
-      place(cover, rects[i], scrollRect, scroller);
+      place(cover, coverRects[i], scrollRect, scroller);
       cover.style.background = bg;
       layer.appendChild(cover);
     }
@@ -104,7 +106,10 @@ function paintContent(content) {
     const box = document.createElement('div');
     box.className = match.display ? 'orgnote-tex-display' : 'orgnote-tex-inline';
     place(box, union, scrollRect, scroller);
-    box.style.overflow = 'hidden';
+    box.style.height = 'auto';
+    box.style.minHeight = `${Math.max(1, union.height)}px`;
+    box.style.minWidth = `${Math.max(1, union.width)}px`;
+    box.style.overflow = 'visible';
     box.style.background = 'transparent';
     try {
       katex.render(match.body, box, {
